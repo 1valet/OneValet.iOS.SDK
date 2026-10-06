@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Transport Security exceptions for local development only.
+	     The demo's baseUrl (APICalls.swift) points at a plain-HTTP .NET dev
+	     server on the LAN; ATS blocks that by default. Remove these before
+	     shipping anything, and keep the exception scoped to the dev host
+	     rather than reaching for NSAllowsArbitraryLoads. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>192.168.86.85</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+
+	<!-- iOS 14+ prompts before an app may talk to LAN addresses. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Used to reach the local 1VALET API dev server during development.</string>
+
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>voip</string>
+		<string>remote-notification</string>
+	</array>
+</dict>
+</plist>
