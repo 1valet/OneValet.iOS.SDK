@@ -20,10 +20,10 @@ let package = Package(
         // LOCAL DEVELOPMENT (active): the xcframework produced by
         // ../OneValet.CallsSDK.iOS/build-xcframework.sh. Keeps the package graph
         // resolvable before any release has been published.
-        .binaryTarget(
-            name: "OneValetSDK",
-            path: "../OneValet.CallsSDK.iOS/build/OneValetSDK.xcframework"
-        ),
+        // .binaryTarget(
+        //     name: "OneValetSDK",
+        //     path: "../OneValet.CallsSDK.iOS/build/OneValetSDK.xcframework"
+        // ),
 
         // RELEASE (inactive): the published artifact consumers download. Before
         // cutting a release, swap the two — comment the local one out and
@@ -32,11 +32,11 @@ let package = Package(
         // indentation, so keep each on its own line. While this block stays
         // commented out the workflow stops with an error rather than publishing a
         // manifest that points at a local path.
-        // .binaryTarget(
-        //     name: "OneValetSDK",
-        //     url: "https://github.com/YOURORG/OneValetSDK/releases/download/0.0.0/OneValetSDK.xcframework.zip",
-        //     checksum: "REPLACE_WITH_CHECKSUM_FROM_BUILD_SCRIPT"
-        // ),
+        .binaryTarget(
+            name: "OneValetSDK",
+            url: "https://github.com/1valet/OneValet.SDK.iOS/releases/download/0.0.0/OneValetSDK.xcframework.zip",
+            checksum: "REPLACE_WITH_CHECKSUM_FROM_BUILD_SCRIPT"
+        ),
         // binaryTargets cannot declare dependencies, so this tiny target forces
         // TwilioVideo (which the binary references) to link into the consumer app.
         .target(
