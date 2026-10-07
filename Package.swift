@@ -35,7 +35,7 @@ let package = Package(
         .binaryTarget(
             name: "OneValetSDK",
             url: "https://github.com/1valet/OneValet.iOS.SDK/releases/download/0.0.3/OneValetSDK.xcframework.zip",
-            checksum: "cbde5718ff8e3ec29f0c8b1f2bd34f3fb9173df9e24cab3d648313f9017bce1b"
+            checksum: "4081e3246a8aadf836ac79777ab7d8f4e822a24c20f2c2d914f93fa0c675a10d"
         ),
         // binaryTargets cannot declare dependencies, so this tiny target forces
         // TwilioVideo (which the binary references) to link into the consumer app.
