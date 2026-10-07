@@ -208,12 +208,14 @@ The SDK is the **media engine only**. Your app owns everything around it:
 - **Access tokens.** The SDK does not talk to any backend. Fetch the access
   token from your own backend and pass it to `joinRoom`.
 - **Incoming-call push and call presentation.** There is no PushKit or CallKit
-  handling in the SDK — register a `PKPushRegistry`, report the call to CallKit,
-  and call `joinRoom` when the user answers. This layer is **mandatory, not
-  optional**: iOS terminates an app that receives a VoIP push without reporting a
-  CallKit call. You also own the audio session — route CallKit's `didActivate` /
-  `didDeactivate` to `enableAudioDevice()` / `disableAudioDevice()`, or the call
-  connects with no audio. See [Setting up VoIP push](#setting-up-voip-push-incoming-calls).
+  handling in the SDK — report the call to CallKit and call `joinRoom` when the
+  user answers. In production, rings arrive as **VoIP pushes** (see the Developer
+  Portal's "Ring your app" page), and iOS terminates an app that receives a VoIP
+  push without reporting a CallKit call. The sample rings over a foreground event
+  stream instead — the CallKit reporting code is the same either way; only the
+  trigger differs. You also own the audio session — route CallKit's
+  `didActivate` / `didDeactivate` to `enableAudioDevice()` /
+  `disableAudioDevice()`, or the call connects with no audio.
 - **Door unlock and other business actions.** These are plain requests your app
   makes through your backend. The SDK only provides `sendData(_:)` if you want
   to signal the other participant over the in-call data channel.
@@ -328,49 +330,47 @@ do {
 ## Sample app
 
 [`Examples/CallsDemo`](Examples/CallsDemo) (`calls.xcodeproj`) is a complete,
-runnable iOS app showing how to integrate the SDK end-to-end — **incoming calls
-over VoIP push (PushKit)** surfaced through the system call UI (**CallKit**),
-then connected with the SDK's `CallManager`. It consumes this package the same
-way your app will, and is a working example of the app-side plumbing the SDK
-expects you to provide — especially the VoIP push + CallKit wiring, which the
-SDK does **not** do for you.
+runnable iOS app showing how to integrate the SDK end-to-end — incoming calls
+surfaced through the system call UI (**CallKit**), then connected with the SDK's
+`CallManager`. It consumes this package the same way your app will.
 
-> Before running, fill in your own API base URL and IDs — the checked-in values
-> are placeholders.
+The demo pairs with the **1VALET Developer Portal**: it displays a short code,
+you enter it on the portal's Demo app page (Mobile SDK → Demo app) and pick the
+resident it rings for, and from then on it receives real intercom calls — no
+backend of your own, no push certificates, no configuration beyond the portal
+URL in `APICalls.swift`.
+
+Rings arrive over an event stream the app holds open, so the demo rings **while
+the app is in the foreground**. A production integration delivers rings as
+**VoIP pushes** from its own backend (PushKit), which is what the Developer
+Portal's "Ring your app" page documents — the CallKit reporting, answering, and
+audio-session code in `CallKitManager.swift` is the same either way; only the
+trigger differs.
 
 ### Project layout
 
 | File | What it shows |
 |---|---|
-| `calls/AppDelegate.swift` | Registers `PKPushRegistry` for VoIP, forwards the token to your backend, and reports incoming pushes to CallKit. |
-| `calls/CallKitManager.swift` | Wraps `CXProvider` / `CXCallController` — reporting, answering, and ending calls, then driving `CallManager`. |
+| `calls/PairingCoordinator.swift` | Pairs the device with the portal and holds the event stream open while the app is foregrounded, turning ring events into CallKit calls and dismissals. |
+| `calls/CallKitManager.swift` | Wraps `CXProvider` / `CXCallController` — reporting, answering, and ending calls, then driving `CallManager`. This is the code a VoIP push handler drives in production. |
 | `calls/Views/CallView.swift` | In-call UI: renders remote video and wires up call controls (including the door-unlock request). |
 
-> **Networking model:** your app talks to **your own backend API**, which in
-> turn calls the **1VALET Public API** — the app never calls 1VALET directly.
-> Your backend registers devices, mints call tokens, and triggers door unlock.
-> (Door unlock is a plain request your app makes through your backend; it is
-> **not** part of OneValetSDK.)
+> **Networking model:** in production your app talks to **your own backend
+> API**, which in turn calls the **1VALET Public API** — the app never calls
+> 1VALET directly. In this demo, the Developer Portal's demo backend plays your
+> backend's role: it mints call tokens, relays call events, and triggers door
+> unlock. (Door unlock is a plain request your app makes through your backend;
+> it is **not** part of OneValetSDK.)
 
 ### Running the demo
 
 1. Open `Examples/CallsDemo/calls.xcodeproj` in Xcode 16+.
 2. Set your **Team** and a unique **bundle ID** under *Signing & Capabilities*.
-3. Point the app's networking at **your backend** and set the relevant IDs —
-   `baseUrl`, `buildingId`, and `occupantId` in `calls/Networking/APICalls.swift`.
-4. Build and run on a **real device** — VoIP push and CallKit do not work in the
-   Simulator.
-
-Incoming calls reach the app over **APNs VoIP push (PushKit)**; there is no
-Firebase dependency on iOS. See [Setting up VoIP push](#setting-up-voip-push-incoming-calls)
-below.
-
-### Setting up VoIP push (incoming calls)
-
-Incoming calls are delivered as **VoIP pushes** through Apple **PushKit**. Your
-backend sends the push to Apple, which wakes the app so it can present the system
-call UI via **CallKit** and then join the room with the SDK. This demo implements
-the whole flow in `AppDelegate.swift` + `CallKitManager.swift`.
+3. If you are not using the default portal, set `portalBaseUrl` in
+   `calls/Networking/APICalls.swift`.
+4. Build and run on a **real device** — CallKit does not work in the Simulator.
+5. Pair the app from the portal's Demo app page, then place a call from an
+   intercom in the building.
 
 ---
 
