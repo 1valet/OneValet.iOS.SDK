@@ -41,9 +41,9 @@ your app's, and everything your backend reports or unlocks goes through the
 1. **File ▸ Add Package Dependencies…**
 2. Enter the package URL:
    ```
-   https://github.com/YOURORG/OneValetSDK.git
+   https://github.com/1valet/OneValet.iOS.SDK.git
    ```
-3. Pick a version rule — **Up to Next Major** from `1.0.0` is recommended.
+3. Pick a version rule — **Up to Next Major** from `0.0.4` is recommended.
 4. Add the **OneValetSDK** library product to your app target.
 
 `TwilioVideo` resolves transitively — do not add it as a separate dependency.
@@ -52,13 +52,13 @@ your app's, and everything your backend reports or unlocks goes through the
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/YOURORG/OneValetSDK.git", from: "1.0.0")
+    .package(url: "https://github.com/1valet/OneValet.iOS.SDK.git", from: "0.0.4")
 ],
 targets: [
     .target(
         name: "YourApp",
         dependencies: [
-            .product(name: "OneValetSDK", package: "OneValetSDK")
+            .product(name: "OneValetSDK", package: "OneValet.iOS.SDK")
         ]
     )
 ]
