@@ -11,7 +11,7 @@ import OneValetSDK
 /// The in-call screen: remote video plus end / unlock / mute controls.
 ///
 /// Shows the division of labour between your app and the SDK. This view fetches
-/// the access token from your backend and reports call status; the SDK's
+/// the access token from the demo backend and reports call status; the SDK's
 /// `CallManager` owns the media session and the video track.
 struct CallView: View {
     /// Dismisses the sheet once the call reaches `.ended`.
@@ -24,9 +24,10 @@ struct CallView: View {
     @State var isMuted: Bool = false
     /// Whether a call action is in flight, driving the loading overlay.
     @State var isLoading = false
-    /// Occupant placing the call, needed to request a token.
-    let occupantId: String
-    /// Video room to join, taken from the VoIP push payload.
+    /// Fatal call setup failure, shown above the controls. A 404 on the token
+    /// means the call ended before we joined — worded as such, not as an error.
+    @State var errorMessage: String?
+    /// Video room to join, taken from the ring event's payload.
     let roomId: String
 
     /// Remote video with the call controls beneath it. Joins the room on appear
@@ -35,7 +36,13 @@ struct CallView: View {
         VStack {
             CallVideoView(track: callsManager.remoteVideoTrack)
                 .frame(maxWidth: .infinity, maxHeight: 400)
-            
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+                    .padding(.vertical, 4)
+            }
+
             HStack {
                 Button("End Call") {
                     if let callUUID = CallKitManager.sharedInstance.currentCallIdentifier {
@@ -57,24 +64,21 @@ struct CallView: View {
                     isLoading = true
                     Task {
                         do {
+                            // The calling intercom's door; `room` ties the unlock
+                            // to this call's audit timeline.
                             let success = try await APICalls.unlock(
-                                buildingId: APICalls.buildingId,
-                                occupantId: APICalls.occupantId,
-                                entryConsoleId: CallKitManager.sharedInstance.entryConsoleId ?? ""
+                                roomId: roomId,
+                                entrySystemId: CallKitManager.sharedInstance.entryConsoleId ?? "",
+                                pairingToken: PairingCoordinator.shared.pairingToken ?? ""
                             )
-                            if success {
-                                print("Unlock success")
-                            } else {
-                                print("Unlock Fail")
-                            }
-                            
+                            print(success ? "Unlock success" : "Unlock Fail")
                         } catch {
                             print("Unlock Fail " + error.localizedDescription)
                         }
                         isLoading = false
                     }
                 }
-                
+
                 Button(isMuted ? "Unmute" : "Mute") {
                     var tempIsMuted = isMuted
                     tempIsMuted.toggle()
@@ -82,7 +86,7 @@ struct CallView: View {
                     Task {
                         do {
                             let response = try await updateStatus(status: tempIsMuted ? .hold : .talking)
-                            
+
                             if response {
                                 isMuted.toggle()
                                 callsManager.setMuteMicrophone(mute: isMuted)
@@ -102,21 +106,25 @@ struct CallView: View {
                 do {
                     // Your code: fetch the access token from your backend. The SDK
                     // never talks to a backend — token acquisition is your job.
-                    let response = try await APICalls.getTokenAndParticipant(roomId: roomId, occupantId: occupantId)
-                    CallKitManager.sharedInstance.participantId = response?.data.participantId ?? ""
+                    guard let response = try await APICalls.getTokenAndParticipant(
+                        roomId: roomId,
+                        pairingToken: PairingCoordinator.shared.pairingToken ?? ""
+                    ) else {
+                        errorMessage = "Could not fetch call credentials."
+                        return
+                    }
+                    CallKitManager.sharedInstance.participantId = response.participantId
 
                     try await callsManager.joinRoom(
                         roomId: roomId,
-                        token: response?.data.token ?? "",
+                        token: response.token,
                         callId: CallKitManager.sharedInstance.currentCallIdentifier ?? UUID()
                     )
-
+                } catch NetworkError.httpError(let statusCode) where statusCode == 404 {
+                    // The room has no live call anymore — it ended before we joined.
+                    errorMessage = "Call ended."
                 } catch {
-                    // Unlike the status reports elsewhere in this view, this one
-                    // is NOT harmless: no token means no room, and the call sits
-                    // in `.connecting` with nothing on screen. A real app should
-                    // surface it — the Android sample's CallScreen binds the same
-                    // failure to an `error` shown above the controls.
+                    errorMessage = "Could not connect: \(error.localizedDescription)"
                 }
             }
         }
@@ -145,18 +153,20 @@ struct CallView: View {
     /// Reports a call status change to the backend.
     ///
     /// Convenience wrapper that fills in the participant and entry console from
-    /// `CallKitManager`, since every call site needs the same context.
+    /// `CallKitManager`, since every call site needs the same context. The
+    /// entry console is the call's caller, from the ring event — the backend
+    /// rejects a report naming an intercom that didn't place the call.
     ///
     /// - Parameter status: The new status to report.
     /// - Returns: `true` if the backend accepted the change.
     /// - Throws: A `NetworkError` if the request fails.
     func updateStatus(status: CallStatus) async throws -> Bool {
         return try await APICalls.updateStatus(
-            occupantId: APICalls.occupantId,
             roomId: roomId,
             participantId: CallKitManager.sharedInstance.participantId ?? "",
-            entryConsoleId: CallKitManager.sharedInstance.entryConsoleId ?? "",
-            status: status
+            entrySystemId: CallKitManager.sharedInstance.entryConsoleId ?? "",
+            status: status,
+            pairingToken: PairingCoordinator.shared.pairingToken ?? ""
         )
     }
 }

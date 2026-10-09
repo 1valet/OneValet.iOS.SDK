@@ -1,6 +1,15 @@
 {
-  "originHash" : "fa4a83f4d1938eb242b9425b8c683d773e2d62a9f48c9b4483236399cedef373",
+  "originHash" : "946ae3d371c9f7b5862fbcc9dee734ae323dbe0e65065f700aea474b9129c037",
   "pins" : [
+    {
+      "identity" : "onevalet.ios.sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/1valet/OneValet.iOS.SDK",
+      "state" : {
+        "revision" : "ae525b768011116d5de5a53b0cc09c0107d08785",
+        "version" : "0.0.4"
+      }
+    },
     {
       "identity" : "twilio-video-ios",
       "kind" : "remoteSourceControl",
