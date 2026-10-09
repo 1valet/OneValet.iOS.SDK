@@ -1,20 +1,15 @@
 //
-//  TokenAndParticipant.swift
+//  TokenAndParticipantResponse.swift
 //  calls
 //
 //  Created by Justin Ngo on 2025-12-17.
 //
 
-/// Envelope wrapping a video room token response.
-struct TokenAndParticipantResponse: Codable {
-    /// The token payload.
-    let data: TokenAndParticipantData
-}
+import Foundation
 
-/// Credentials needed to join a video room.
-struct TokenAndParticipantData: Codable {
-    /// Access token to hand to `CallManager.joinRoom`.
+/// Response of the room-token call: the access token to hand to
+/// `CallManager.joinRoom` and the participant identity to report status with.
+struct TokenAndParticipantResponse: Codable {
     let token: String
-    /// This device's participant identifier, required when reporting status.
     let participantId: String
 }

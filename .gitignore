@@ -1,3 +1,18 @@
-.build/
-.swiftpm/xcode/**/xcuserdata/
+# macOS
 .DS_Store
+
+# Xcode per-user state (window layout, breakpoints, scheme order) and build output
+xcuserdata/
+DerivedData/
+build/
+
+# Swift Package Manager
+.build/
+/Packages/
+.swiftpm/configuration/
+.netrc
+
+# Release artifacts: attached to GitHub Releases, never committed
+*.xcframework
+*.xcframework.zip
+*.xcarchive

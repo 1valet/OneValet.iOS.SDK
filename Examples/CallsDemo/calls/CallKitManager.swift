@@ -63,16 +63,19 @@ class CallKitManager: NSObject, ObservableObject {
 
     /// Presents the native incoming-call screen and stores the call's context.
     ///
-    /// Must be called from the VoIP push handler — iOS terminates the app if a
-    /// VoIP push does not result in a reported call.
+    /// In this demo the trigger is a ring event on the portal's event stream;
+    /// in a production integration it is a VoIP push — the reporting code is
+    /// identical, only the trigger differs (and with PushKit, iOS terminates
+    /// the app if a VoIP push does not result in a reported call).
     ///
     /// - Parameters:
     ///   - uuid: Identifier to track this call by for its lifetime.
     ///   - roomId: Video room the call will join once answered.
-    ///   - entryConsoleId: Entry console that placed the call.
-    ///   - completion: Invoked once the call has been reported; hand this the
-    ///     completion handler PushKit gave you so iOS knows the push was handled.
-    func reportIncomingCall(uuid: UUID, roomId: String, entryConsoleId: String, completion: @escaping (() -> Void)) {
+    ///   - entryConsoleId: Entry console that placed the call, from the ring
+    ///     event's payload — needed for status reports and unlock.
+    ///   - completion: Invoked once the call has been reported. With PushKit,
+    ///     hand this the completion handler the push gave you.
+    func reportIncomingCall(uuid: UUID, roomId: String, entryConsoleId: String, completion: @escaping (() -> Void) = {}) {
         let callerName = "Demo Caller"
         let update = CXCallUpdate()
         update.hasVideo = true
@@ -84,8 +87,12 @@ class CallKitManager: NSObject, ObservableObject {
         update.supportsDTMF = true
         currentCallIdentifier = uuid
         callKitProvider.reportNewIncomingCall(with: uuid, update: update) { error in
-            if let error = error {
-                print("Failed to report incoming call successfully: \(String(describing: error.localizedDescription)).")
+            if let error = error as NSError? {
+                // CXErrorCodeIncomingCallError codes: 1 unentitled, 2 callUUIDAlreadyExists,
+                // 3 filteredByDoNotDisturb, 4 filteredByBlockList, 5 filteredDuringRestrictedSharingMode.
+                print("\u{274C} reportNewIncomingCall failed: domain=\(error.domain) code=\(error.code) \(error.localizedDescription)")
+            } else {
+                print("\u{2705} reportNewIncomingCall succeeded for room \(roomId)")
             }
             self.roomId = roomId
             self.entryConsoleId = entryConsoleId
@@ -98,6 +105,27 @@ class CallKitManager: NSObject, ObservableObject {
         if let currentCallIdentifier {
             performEndCallAction(uuid: currentCallIdentifier)
         }
+    }
+
+    /// Takes down a still-ringing call because the platform said its ring is
+    /// over — answered on another device, missed, declined elsewhere, or the
+    /// visitor gave up. CallKit's ended-reasons map one-to-one onto those
+    /// states, so the system UI tells the user the right thing.
+    ///
+    /// A `reportCall` is a report, not an action — it does not trigger
+    /// `CXEndCallAction`, so no decline status is sent for it. An
+    /// already-answered call (`isCallActive`) is deliberately unaffected.
+    ///
+    /// - Parameters:
+    ///   - roomId: Room whose ring is over; ignored if it isn't the one ringing.
+    ///   - reason: Why the ring ended, shown by the system UI.
+    func dismissRinging(roomId: String, reason: CXCallEndedReason) {
+        guard let uuid = currentCallIdentifier, self.roomId == roomId, !isCallActive else {
+            return
+        }
+
+        callKitProvider.reportCall(with: uuid, endedAt: Date(), reason: reason)
+        currentCallIdentifier = nil
     }
 
     /// Asks the system to end a specific call.
@@ -192,12 +220,22 @@ extension CallKitManager : CXProviderDelegate {
     /// Called when the user declines or hangs up, from either the system UI or
     /// `performEndCallAction`. Disconnects media and dismisses the in-call UI.
     ///
+    /// Ending a call that was never answered is a decline — report `Busy` so the
+    /// resident's other devices stop ringing. An answered call's `Hangup` is
+    /// reported by `CallView`, which owns the participant context.
+    ///
     /// - Parameters:
     ///   - provider: The provider requesting the action.
     ///   - action: The end-call action; must be fulfilled or the call is dropped.
     func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
         print("provider:performEndCallAction:")
-        
+
+        if !isCallActive, let roomId, let entryConsoleId {
+            Task { @MainActor in
+                PairingCoordinator.shared.reportDecline(roomId: roomId, entrySystemId: entryConsoleId)
+            }
+        }
+
         CallManager.sharedInstance.disconnect()
         isCallActive = false
         action.fulfill(withDateEnded: Date())

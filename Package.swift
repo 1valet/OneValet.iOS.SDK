@@ -11,7 +11,11 @@ let package = Package(
         .library(name: "OneValetSDK", targets: ["OneValetSDK", "TwilioLink"])
     ],
     dependencies: [
-        .package(url: "https://github.com/twilio/twilio-video-ios", from: "5.5.0")
+        // Exact, not a range: the binary is compiled against this one Twilio
+        // release and links it dynamically, so any other version can fail at
+        // launch (5.11 dropped TVIIsacCodec). Keep it in step with the source
+        // repo's Package.swift whenever that changes.
+        .package(url: "https://github.com/twilio/twilio-video-ios", exact: "5.5.0")
     ],
     targets: [
         // The compiled, closed-source SDK. Consumers `import OneValetSDK`.

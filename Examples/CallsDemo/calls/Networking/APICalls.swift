@@ -7,143 +7,117 @@
 
 import Foundation
 
-/// The demo's backend calls against the 1VALET Public API.
+/// The Developer Portal's demo API — the sample's whole backend.
 ///
-/// Everything here is *your* responsibility in a real integration — the SDK
-/// handles media only and never contacts a backend itself. Static because the
-/// demo has a single hard-coded occupant; a real app would inject this.
+/// Every call after pairing carries the pairing token; the portal knows from it
+/// which building and resident this device is bound to, and proxies the calls to
+/// the 1VALET Public API. In a real integration all of this is *your* backend's
+/// job — the SDK handles media only and never contacts a backend itself.
 struct APICalls {
-    // Placeholders — fill in with your own 1VALET API base URL and IDs.
-    /// Base URL of your 1VALET API environment.
-    static let baseUrl = "http://192.168.86.85:5266"
+    /// The only configuration the sample needs: where the 1VALET Developer
+    /// Portal lives. Everything else — which building and resident this device
+    /// rings for — is decided when you pair the app on the portal's Demo app page.
+    static let portalBaseUrl = "https://developers.1valet.com"
 
-    /// Building the demo occupant belongs to.
-    static let buildingId = "5f325d2b-8be1-4233-a3d3-2bdbf08afbb2"
-    /// Occupant this demo acts as, i.e. the resident receiving calls.
-    static let occupantId = "9ee885a2-95e8-4aa3-90ab-08ded6aa7be5"
-
-    /// Requests an access token for a video room.
+    /// Starts a pairing: returns the code the app displays and the pending token
+    /// it listens with until the code is activated.
     ///
-    /// Call this before `CallManager.joinRoom` — the SDK expects a token it did
-    /// not fetch, so this hop through your backend is required.
-    ///
-    /// - Parameters:
-    ///   - roomId: The video room to get a token for.
-    ///   - occupantId: The occupant joining the room.
-    /// - Returns: The token and participant identifier, or `nil` if the URL was
-    ///   malformed.
+    /// - Returns: The pairing code, pending token, and expiry, or `nil` if the
+    ///   URL was malformed.
     /// - Throws: A `NetworkError` if the request or decoding fails.
-    static func getTokenAndParticipant(roomId: String, occupantId: String) async throws -> TokenAndParticipantResponse? {
-        guard let url = URL(string: baseUrl + "/api/v1/video-calls/rooms/\(roomId)/tokens") else {
-            print("Invalid GET URL")
+    static func createPairing() async throws -> CreatePairingResponse? {
+        guard let url = URL(string: portalBaseUrl + "/api/demo/pairings") else {
+            print("Invalid POST URL")
             return nil
         }
 
         let client = NetworkClient()
-        let request = TokenAndParticipantRequest(occupantId: occupantId)
-        let fetchedPost = try await client.post(
-            to: url,
-            payload: request,
-            responseType: TokenAndParticipantResponse.self
-        )
+        return try await client.post(to: url, responseType: CreatePairingResponse.self)
+    }
 
-        print("✅ Token request succeeded:")
-        print("Token: \(fetchedPost.data.token), Participant: \(fetchedPost.data.participantId)")
-        return fetchedPost
+    /// Listens for events. With the pending token this yields the "paired"
+    /// event; with the activated token it carries the "video-call" events
+    /// (verbatim 1VALET webhook payloads). Suspends until `onEvent` returns
+    /// `false` or the connection ends; callers reconnect with backoff.
+    ///
+    /// - Parameters:
+    ///   - token: The pending or activated pairing token.
+    ///   - onEvent: Receives `(event, data)` per event; return `false` to stop.
+    /// - Throws: A `NetworkError` — `.unauthorized` when the token was rejected.
+    static func listenForEvents(token: String, onEvent: (String, String) async -> Bool) async throws {
+        guard let url = URL(string: portalBaseUrl + "/api/demo/events") else {
+            print("Invalid stream URL")
+            return
+        }
+
+        let client = NetworkClient()
+        try await client.readEventStream(from: url, bearerToken: token, onEvent: onEvent)
+    }
+
+    /// Requests an access token for a video room.
+    ///
+    /// Call this before `CallManager.joinRoom` — the SDK expects a token it did
+    /// not fetch. A 404 means the room has no live call anymore — show
+    /// "call ended", not an error.
+    ///
+    /// - Parameters:
+    ///   - roomId: The video room to get a token for.
+    ///   - pairingToken: The activated pairing token.
+    /// - Returns: The token and participant identifier, or `nil` if the URL was
+    ///   malformed.
+    /// - Throws: A `NetworkError` if the request or decoding fails.
+    static func getTokenAndParticipant(roomId: String, pairingToken: String) async throws -> TokenAndParticipantResponse? {
+        guard let url = URL(string: portalBaseUrl + "/api/demo/rooms/\(roomId)/tokens") else {
+            print("Invalid POST URL")
+            return nil
+        }
+
+        let client = NetworkClient()
+        return try await client.post(to: url, bearerToken: pairingToken, responseType: TokenAndParticipantResponse.self)
     }
 
     /// Reports a call status change so the entry console can update its display.
     ///
     /// - Parameters:
-    ///   - occupantId: The occupant on the call.
     ///   - roomId: The video room the call is using.
     ///   - participantId: Participant identifier from `getTokenAndParticipant`.
-    ///   - entryConsoleId: The console that placed the call.
+    ///   - entrySystemId: The calling intercom, from the ring event's payload.
     ///   - status: The new call status.
+    ///   - pairingToken: The activated pairing token.
     /// - Returns: `true` on success, `false` if the URL was malformed.
     /// - Throws: A `NetworkError` if the request fails.
-    static func updateStatus(occupantId: String, roomId: String, participantId: String, entryConsoleId: String, status: CallStatus) async throws -> Bool {
-        guard let url = URL(string: baseUrl + "/api/v1/video-calls/rooms/\(roomId)/update-status") else {
+    static func updateStatus(roomId: String, participantId: String, entrySystemId: String, status: CallStatus, pairingToken: String) async throws -> Bool {
+        guard let url = URL(string: portalBaseUrl + "/api/demo/rooms/\(roomId)/status") else {
             print("Invalid POST URL")
             return false
         }
-                
+
         let client = NetworkClient()
         let request = UpdateCallStatusRequest(
             participantId: participantId,
-            occupantId: occupantId,
-            entryConsoleId: entryConsoleId,
-            callStatus: status
+            callStatus: status,
+            entrySystemId: entrySystemId
         )
-        
-        return try await client.post(
-            to: url,
-            payload: request
-        )
+
+        return try await client.post(to: url, payload: request, bearerToken: pairingToken)
     }
 
-    /// Registers this device's VoIP push token so the backend can reach it for
-    /// calls.
+    /// Unlocks the calling intercom's door for the active call.
     ///
     /// - Parameters:
-    ///   - buildingId: Building the occupant belongs to.
-    ///   - occupantId: Occupant this device belongs to.
-    ///   - apnsDeviceToken: VoIP push token from PushKit.
-    /// - Returns: `true` on success, `false` if the URL was malformed.
-    /// - Throws: A `NetworkError` if the request fails.
-    static func registerDevice(buildingId: String, occupantId: String, apnsDeviceToken: String) async throws -> Bool {
-        guard let url = URL(string: baseUrl + "/api/v1/devices/register") else {
-            print("Invalid POST URL")
-            return false
-        }
-        
-        let client = NetworkClient()
-        let request = DeviceRegistrationRequest(
-            occupantId: occupantId,
-            buildingId: buildingId,
-            apnsDeviceToken: apnsDeviceToken
-        )
-        return try await client.post(
-            to: url,
-            payload: request
-        )
-    }
-
-    /// Fetches the occupant's profile. Used at launch as a cheap check that the
-    /// configured base URL and IDs are valid.
-    ///
-    /// - Parameters:
-    ///   - buildingId: Building the occupant belongs to.
-    ///   - occupantId: Occupant to look up.
-    /// - Returns: The occupant profile, or `nil` if the URL was malformed.
-    /// - Throws: A `NetworkError` if the request or decoding fails.
-    static func getProfile(buildingId: String, occupantId: String) async throws -> OccupantResponse? {
-        
-        guard let url = URL(string: baseUrl + "/api/v1/occupants/\(occupantId)?buildingId=\(buildingId)") else {
-            print("Invalid POST URL")
-            return nil
-        }
-        
-        let client = NetworkClient()
-
-        return try await client.get(from: url, responseType: OccupantResponse.self)
-    }
-
-    /// Unlocks the door on the entry console that placed the call.
-    ///
-    /// - Parameters:
-    ///   - buildingId: Building containing the entry console.
-    ///   - occupantId: Occupant authorizing the unlock.
-    ///   - entryConsoleId: Entry console whose door to unlock.
+    ///   - roomId: The video room of the call, tying the unlock to it.
+    ///   - entrySystemId: The calling intercom, from the ring event's payload.
+    ///   - pairingToken: The activated pairing token.
     /// - Returns: `true` if the door was unlocked, `false` if the URL was malformed.
     /// - Throws: A `NetworkError` if the request fails.
-    static func unlock(buildingId: String, occupantId: String, entryConsoleId: String) async throws -> Bool {
-        guard let url = URL(string: baseUrl + "/api/buildings/\(buildingId)/entry-systems/\(entryConsoleId)/unlock") else {
+    static func unlock(roomId: String, entrySystemId: String, pairingToken: String) async throws -> Bool {
+        guard let url = URL(string: portalBaseUrl + "/api/demo/unlock") else {
             print("Invalid POST URL")
             return false
         }
-        let request = UnlockEntryConsoleDoorRequest(occupantId: occupantId)
+
         let client = NetworkClient()
-        return try await client.post(to: url, payload: request)
+        let request = UnlockRequest(room: roomId, entrySystemId: entrySystemId)
+        return try await client.post(to: url, payload: request, bearerToken: pairingToken)
     }
 }

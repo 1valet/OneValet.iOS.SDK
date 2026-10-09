@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AD3BD9322EF3526D00EB56A1 /* OneValetSDK in Frameworks */ = {isa = PBXBuildFile; productRef = AD3BD9312EF3526D00EB56A1 /* OneValetSDK */; };
+		AD31019130792A3E000462C1 /* OneValetSDK in Frameworks */ = {isa = PBXBuildFile; productRef = AD31019030792A3E000462C1 /* OneValetSDK */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,7 +40,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AD3BD9322EF3526D00EB56A1 /* OneValetSDK in Frameworks */,
+				AD31019130792A3E000462C1 /* OneValetSDK in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -83,7 +83,7 @@
 			);
 			name = calls;
 			packageProductDependencies = (
-				AD3BD9312EF3526D00EB56A1 /* OneValetSDK */,
+				AD31019030792A3E000462C1 /* OneValetSDK */,
 			);
 			productName = calls;
 			productReference = AD3BD9032EF2FA6A00EB56A1 /* calls.app */;
@@ -114,7 +114,7 @@
 			mainGroup = AD3BD8FA2EF2FA6A00EB56A1;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				AD3BD9302EF3526D00EB56A1 /* XCLocalSwiftPackageReference "../.." */,
+				AD31018F30792A3E000462C1 /* XCRemoteSwiftPackageReference "OneValet.iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AD3BD9042EF2FA6A00EB56A1 /* Products */;
@@ -268,7 +268,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = calls/calls.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 3CPT8Z8JZC;
@@ -317,7 +316,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = calls/calls.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 3CPT8Z8JZC;
@@ -384,16 +382,21 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		AD3BD9302EF3526D00EB56A1 /* XCLocalSwiftPackageReference "../.." */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../..;
+/* Begin XCRemoteSwiftPackageReference section */
+		AD31018F30792A3E000462C1 /* XCRemoteSwiftPackageReference "OneValet.iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/1valet/OneValet.iOS.SDK";
+			requirement = {
+				kind = exactVersion;
+				version = 0.0.4;
+			};
 		};
-/* End XCLocalSwiftPackageReference section */
+/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		AD3BD9312EF3526D00EB56A1 /* OneValetSDK */ = {
+		AD31019030792A3E000462C1 /* OneValetSDK */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = AD31018F30792A3E000462C1 /* XCRemoteSwiftPackageReference "OneValet.iOS" */;
 			productName = OneValetSDK;
 		};
 /* End XCSwiftPackageProductDependency section */
