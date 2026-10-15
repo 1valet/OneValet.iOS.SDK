@@ -371,10 +371,3 @@ trigger differs.
 4. Build and run on a **real device** — CallKit does not work in the Simulator.
 5. Pair the app from the portal's Demo app page, then place a call from an
    intercom in the building.
-
----
-
-## Support
-
-Questions or integration help: **developer support @ 1VALET** (add your real
-support channel / SLA here before publishing).
